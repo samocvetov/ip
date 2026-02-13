@@ -1,31 +1,35 @@
 #!/usr/bin/env bash
 
+TIMEOUT=4
+
 get_ipv4() {
-    curl -4 -s --max-time 4 https://api.ipify.org
+    curl -4 -s --max-time $TIMEOUT https://api.ipify.org
 }
 
 get_ipv6() {
-    curl -6 -s --max-time 4 https://api64.ipify.org
+    curl -6 -s --max-time $TIMEOUT https://api64.ipify.org
 }
 
 get_country() {
-    curl -s --max-time 4 ipinfo.io/$1/country 2>/dev/null
+    curl -s --max-time $TIMEOUT ipinfo.io/$1/country 2>/dev/null
 }
 
 get_asn() {
-    curl -s --max-time 4 ipinfo.io/$1/org 2>/dev/null
+    curl -s --max-time $TIMEOUT ipinfo.io/$1/org 2>/dev/null
 }
 
-check_service() {
+dns_country() {
     HOST=$1
+    TYPE=$2
 
-    IPV4=$(curl -4 -s --connect-timeout 4 https://$HOST -o /dev/null -w "%{remote_ip}")
-    IPV6=$(curl -6 -g -s --connect-timeout 4 https://$HOST -o /dev/null -w "%{remote_ip}")
+    if [ "$TYPE" = "4" ]; then
+        IP=$(dig +short A $HOST | head -n1)
+    else
+        IP=$(dig +short AAAA $HOST | head -n1)
+    fi
 
-    C4=$(get_country $IPV4)
-    C6=$(get_country $IPV6)
-
-    printf "%-20s %-5s %-5s\n" "$2" "${C4:-N/A}" "${C6:-N/A}"
+    [ -z "$IP" ] && echo "N/A" && return
+    get_country $IP
 }
 
 echo
@@ -43,9 +47,16 @@ echo "ASN: ${ASN:-N/A}"
 echo
 echo "Popular services"
 echo
-printf "%-20s %-5s %-5s\n" "Service" "IPv4" "IPv6"
+printf "%-20s %-6s %-6s\n" "Service" "IPv4" "IPv6"
 
-check_service "www.google.com" "Google"
-check_service "www.youtube.com" "YouTube"
+printf "%-20s %-6s %-6s\n" \
+"Google" \
+"$(dns_country www.google.com 4)" \
+"$(dns_country www.google.com 6)"
+
+printf "%-20s %-6s %-6s\n" \
+"YouTube" \
+"$(dns_country www.youtube.com 4)" \
+"$(dns_country www.youtube.com 6)"
 
 echo
