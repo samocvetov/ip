@@ -1,53 +1,51 @@
 #!/usr/bin/env bash
 
-TARGET_COUNTRIES="US NL"
+get_ipv4() {
+    curl -4 -s --max-time 4 https://api.ipify.org
+}
+
+get_ipv6() {
+    curl -6 -s --max-time 4 https://api64.ipify.org
+}
 
 get_country() {
     curl -s --max-time 4 ipinfo.io/$1/country 2>/dev/null
 }
 
-get_org() {
+get_asn() {
     curl -s --max-time 4 ipinfo.io/$1/org 2>/dev/null
 }
 
 check_service() {
-    SERVICE_NAME=$1
-    HOST=$2
+    HOST=$1
 
-    for IPVER in 4 6; do
-        if [ "$IPVER" = "4" ]; then
-            IP=$(curl -$IPVER -s --connect-timeout 4 https://$HOST -o /dev/null -w "%{remote_ip}" 2>/dev/null)
-        else
-            IP=$(curl -$IPVER -g -s --connect-timeout 4 https://$HOST -o /dev/null -w "%{remote_ip}" 2>/dev/null)
-        fi
+    IPV4=$(curl -4 -s --connect-timeout 4 https://$HOST -o /dev/null -w "%{remote_ip}")
+    IPV6=$(curl -6 -g -s --connect-timeout 4 https://$HOST -o /dev/null -w "%{remote_ip}")
 
-        if [ -z "$IP" ]; then
-            continue
-        fi
+    C4=$(get_country $IPV4)
+    C6=$(get_country $IPV6)
 
-        COUNTRY=$(get_country $IP)
-        ORG=$(get_org $IP)
-
-        MARK=""
-        for T in $TARGET_COUNTRIES; do
-            if [ "$COUNTRY" = "$T" ]; then
-                if [[ "$ORG" == *"Google"* && "$ORG" != *"Cache"* ]]; then
-                    MARK="🎯 REAL"
-                else
-                    MARK="⚠ CDN"
-                fi
-            fi
-        done
-
-        printf "%-10s IPv%s %s %s\n" "$SERVICE_NAME" "$IPVER" "$COUNTRY" "$MARK"
-        printf "   → %s | %s\n" "$IP" "$ORG"
-    done
-    echo
+    printf "%-20s %-5s %-5s\n" "$2" "${C4:-N/A}" "${C6:-N/A}"
 }
 
 echo
-echo "Scanning VPS route..."
-echo
 
-check_service "Google" "www.google.com"
-check_service "YouTube" "www.youtube.com"
+IP4=$(get_ipv4)
+IP6=$(get_ipv6)
+
+C4=$(get_country $IP4)
+C6=$(get_country $IP6)
+ASN=$(get_asn $IP4)
+
+echo "IPv4: ${IP4:-N/A}, registered in ${C4:-N/A}"
+echo "IPv6: ${IP6:-N/A}, registered in ${C6:-N/A}"
+echo "ASN: ${ASN:-N/A}"
+echo
+echo "Popular services"
+echo
+printf "%-20s %-5s %-5s\n" "Service" "IPv4" "IPv6"
+
+check_service "www.google.com" "Google"
+check_service "www.youtube.com" "YouTube"
+
+echo
